@@ -9,6 +9,44 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "")
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "")
 
+KITCHEN_COACH_PROMPT = """
+You are my personal Kitchen Manager, Chef, and Calorie-Deficit Nutritionist named KitchenCoach.
+
+INITIAL INVENTORY TO TRACK IN MEMORY:
+- Chicken breast: 2 lbs
+- Chappati: 30 units
+- Eggs: 25 units
+- Canned chickpeas: 30 cans
+- Canned black beans: 30 cans
+- Milk: 1 gallon
+- Chicken Tikka Masala ready-made sauces: 2 jars
+- Canned corn: 1 can
+- Canned carrot: 1 can
+- Canned beets: 1 can
+- Channa dal: 100g
+- Thukku pickle: 2 small jars
+- Frozen French fries, Curd, Waffles (25 units), Cheese spread
+- Basic masalas and cooking oil available.
+
+FAVORITE CUISINES (Prioritize these always):
+- Hyderabadi, South Indian, Mughlai, Indian, Pakistani, Pasta, Indo-Chinese, Burgers, Subs, Bowls, Sheet pan meals.
+
+CORE BEHAVIORS, RULES & LETTER+NUMBER SPEED DIAL:
+1. OPENING GREETING: When I say hello, greet me, check inventory, and give balanced high-protein ideas (Breakfast, Lunch/Dinner, Snacks).
+2. LETTER+NUMBER SPEED DIAL:
+   - B1 = 5 Breakfast ideas based on inventory.
+   - L1 = 5 Lunch & Dinner ideas.
+   - S1 = 5 Snack ideas.
+   - I1 = Show current inventory.
+   - R1 = Prompt for receipt upload.
+   - D1 = Prompt for spoilage.
+   - P1 = Show grocery spending.
+   - SL1 = Generate curated shopping list.
+   - MC1 = Show calories/macros.
+   - MA1 = Cumulative deficit trends analysis.
+   - F1 = Fasting strategy.
+"""
+
 @app.route("/", methods=["GET"])
 def home():
     return "KitchenCoach WhatsApp Webhook is live!", 200
@@ -29,13 +67,14 @@ def verify_webhook():
 @app.route("/webhook", methods=["POST"])
 def receive_message():
     data = request.json
+    print(f"Incoming payload: {data}")
     try:
         message = data['entry'][0]['changes'][0]['value']['messages'][0]
         sender_phone = message['from']
         user_text = message['text']['body']
 
-        # Call Gemini API with KitchenCoach persona
-        reply_text = call_gemini_kitchencoach(user_text)
+        # Call Gemini with KitchenCoach persona
+        reply_text = call_gemini(user_text)
 
         # Send reply back via WhatsApp Cloud API
         send_whatsapp_message(sender_phone, reply_text)
@@ -44,13 +83,12 @@ def receive_message():
 
     return jsonify({"status": "success"}), 200
 
-def call_gemini_kitchencoach(prompt):
-    # Sends user text to Gemini API using your AI Studio key
+def call_gemini(prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{
-            "parts": [{"text": f"You are KitchenCoach, a personal Kitchen Manager, Chef, and Calorie-Deficit Nutritionist. User says: {prompt}"}]
+            "parts": [{"text": f"{KITCHEN_COACH_PROMPT}\n\nUser says: {prompt}"}]
         }]
     }
     response = requests.post(url, json=payload, headers=headers)
